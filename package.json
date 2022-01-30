@@ -1,5 +1,6 @@
 {
   "name": "homebridge-tesla-control",
+  "displayName": "Homebridge Tesla Control",
   "version": "1.0.0",
   "description": "Forked from Tesla support for Homebridge: https://github.com/nfarina/homebridge",
   "license": "ISC",

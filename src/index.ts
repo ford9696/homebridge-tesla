@@ -207,8 +207,8 @@ class TeslaAccessory {
 
     chargePortSwitchService
       .getCharacteristic(Characteristic.On)
-      .on("get", callbackify(this.getChargePortTargetState))
-      .on("set", callbackify(this.setChargePortTargetState));
+      .on("get", callbackify(this.getChargePortOn))
+      .on("set", callbackify(this.setChargePortOn));
 
     this.chargePortService = this.chargePortSwitch
       ? chargePortSwitchService
@@ -805,6 +805,40 @@ class TeslaAccessory {
         Characteristic.LockCurrentState,
         Characteristic.LockCurrentState.UNSECURED,
       );
+    }
+  };
+
+  getChargePortOn = async () => {
+    const options = await this.getOptions();
+
+    if (options.isAsleep) {
+      this.logIgnored("charge port");
+      throw new Error("Vehicle is asleep.");
+    }
+
+    // This will only succeed if the car is already online. We don't want to
+    // wake it up just to see the sentry mode state because that could drain battery!
+    const state: VehicleState = await api("vehicleState", options);
+
+    const on = state.charge_state.charge_port_door_open
+    ;
+
+    this.log("Charge Port Open?", on);
+    return on;
+  };
+
+  setChargePortOn = async (on: boolean) => {
+    const options = await this.getOptions();
+
+    // Wake up, this is important!
+    await this.wakeUp(options);
+
+    this.log("Charge Port is set to ", on);
+
+    if (on) {
+      await api("closeChargePort", options);
+    } else {
+      await api("openChargePort", options);
     }
   };
 

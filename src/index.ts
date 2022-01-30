@@ -31,6 +31,7 @@ class TeslaAccessory {
   disableDoors: boolean | null;
   disableSentryMode: boolean | null;
   sentryModeSwitch: boolean | null;
+  chargePortSwitch: boolean | null;
   disableTrunk: boolean | null;
   disableFrunk: boolean | null;
   disableChargePort: boolean | null;
@@ -73,6 +74,7 @@ class TeslaAccessory {
     this.disableDoors = config["disableDoors"] || false;
     this.disableSentryMode = config["disableSentryMode"] || false;
     this.sentryModeSwitch = config["sentryModeSwitch"] || false;
+    this.chargePortSwitch = config["chargePortSwitch"] || false;
     this.disableTrunk = config["disableTrunk"] || false;
     this.disableFrunk = config["disableFrunk"] || false;
     this.disableChargePort = config["disableChargePort"] || false;
@@ -84,10 +86,7 @@ class TeslaAccessory {
     this.enableHomeLink = config["enableHomeLink"] || false;
     this.disableChargeLevel = config["disableChargeLevel"] || false;
 
-    const connectionService = new Service.Switch(
-      baseName + " Connection",
-      "connection",
-    );
+    const connectionService = new Service.Switch(baseName + " Connection","connection",);
 
     connectionService
       .getCharacteristic(Characteristic.On)
@@ -190,18 +189,31 @@ class TeslaAccessory {
     this.frunkService = frunkService;
 
     // Enable the charge port lock service; allows you to open/close the charging port.
-    const chargePortService = new Service.Switch(baseName + " Charge Port","chargePort",);
+    const chargePortLockService = new Service.LockMechanism(baseName + " Charge Port","chargePort",);
 
-    chargePortService
+    chargePortLockService
       .getCharacteristic(Characteristic.LockCurrentState)
       .on("get", callbackify(this.getChargePortCurrentState));
 
-    chargePortService
+    chargePortLockService
       .getCharacteristic(Characteristic.LockTargetState)
       .on("get", callbackify(this.getChargePortTargetState))
       .on("set", callbackify(this.setChargePortTargetState));
 
-    this.chargePortService = chargePortService;
+    const chargePortSwitchService = new Service.Switch(
+      baseName + " Charge Port",
+      "chargePort",
+    );
+
+    chargePortSwitchService
+      .getCharacteristic(Characteristic.On)
+      .on("get", callbackify(this.getChargePortTargetState))
+      .on("set", callbackify(this.setChargePortTargetState));
+
+    this.chargePortService = this.chargePortSwitch
+      ? chargePortSwitchService
+      : chargePortLockService;
+
 
     // Enable the charger service; allows you to turn on/off car charging.
     const chargerService = new Service.Switch(baseName + " Charger", "charger");

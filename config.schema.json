@@ -63,6 +63,11 @@
         "type": "boolean",
         "description": "This will configure Sentry Mode as a switch, instead of a lock."
       },
+      "chargePortSwitch": {
+        "title": "Charge Port Service as a Switch",
+        "type": "boolean",
+        "description": "This will configure Charge Port as a switch, instead of a lock."
+      },
       "disableClimate": {
         "title": "Disable Climate Control Service",
         "type": "boolean"

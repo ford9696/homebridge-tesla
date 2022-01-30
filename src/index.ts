@@ -190,10 +190,7 @@ class TeslaAccessory {
     this.frunkService = frunkService;
 
     // Enable the charge port lock service; allows you to open/close the charging port.
-    const chargePortService = new Service.LockMechanism(
-      baseName + " Charge Port",
-      "chargePort",
-    );
+    const chargePortService = new Service.Switch(baseName + " Charge Port","chargePort",);
 
     chargePortService
       .getCharacteristic(Characteristic.LockCurrentState)

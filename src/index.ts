@@ -749,9 +749,9 @@ class TeslaAccessory {
     this.log("Charge Port is set to", on);
 
     if (on) {
-      await api("closeChargePort", options);
+      await api("closeChargePort", options, true);
     } else {
-      await api("openChargePort", options);
+      await api("openChargePort", options, true);
     }
   };
 

@@ -31,7 +31,6 @@ class TeslaAccessory {
   disableDoors: boolean | null;
   disableSentryMode: boolean | null;
   sentryModeSwitch: boolean | null;
-  chargePortSwitch: boolean | null;
   disableTrunk: boolean | null;
   disableFrunk: boolean | null;
   disableChargePort: boolean | null;
@@ -74,7 +73,6 @@ class TeslaAccessory {
     this.disableDoors = config["disableDoors"] || false;
     this.disableSentryMode = config["disableSentryMode"] || false;
     this.sentryModeSwitch = config["sentryModeSwitch"] || false;
-    this.chargePortSwitch = config["chargePortSwitch"] || false;
     this.disableTrunk = config["disableTrunk"] || false;
     this.disableFrunk = config["disableFrunk"] || false;
     this.disableChargePort = config["disableChargePort"] || false;
@@ -188,32 +186,14 @@ class TeslaAccessory {
 
     this.frunkService = frunkService;
 
-    // Enable the charge port lock service; allows you to open/close the charging port.
-    const chargePortLockService = new Service.LockMechanism(baseName + " Charge Port","chargePort",);
+    const chargePortService = new Service.Switch(baseName + " Charge Port","chargePort",);
 
-    chargePortLockService
-      .getCharacteristic(Characteristic.LockCurrentState)
-      .on("get", callbackify(this.getChargePortCurrentState));
-
-    chargePortLockService
-      .getCharacteristic(Characteristic.LockTargetState)
-      .on("get", callbackify(this.getChargePortTargetState))
-      .on("set", callbackify(this.setChargePortTargetState));
-
-    const chargePortSwitchService = new Service.Switch(
-      baseName + " Charge Port",
-      "chargePort",
-    );
-
-    chargePortSwitchService
+    chargePortService
       .getCharacteristic(Characteristic.On)
       .on("get", callbackify(this.getChargePortOn))
       .on("set", callbackify(this.setChargePortOn));
 
-    this.chargePortService = this.chargePortSwitch
-      ? chargePortSwitchService
-      : chargePortLockService;
-
+    this.chargePortService = this.chargePortService
 
     // Enable the charger service; allows you to turn on/off car charging.
     const chargerService = new Service.Switch(baseName + " Charger", "charger");
@@ -413,7 +393,6 @@ class TeslaAccessory {
     }
 
     // This will only succeed if the car is already online. We don't want to
-    // wake it up just to see the sentry mode state because that could drain battery!
     const state: VehicleState = await api("vehicleState", options);
 
     const on = state.sentry_mode;
@@ -743,71 +722,6 @@ class TeslaAccessory {
   // Charge Port
   //
 
-  getChargePortCurrentState = async () => {
-    const options = await this.getOptions();
-
-    if (options.isAsleep) {
-      this.logIgnored("charge port current state");
-      throw new Error("Vehicle is asleep.");
-    }
-
-    // This will only succeed if the car is already online.
-    const state: VehicleData = await api("vehicleData", options);
-
-    return state.charge_state.charge_port_door_open
-      ? Characteristic.LockCurrentState.UNSECURED
-      : Characteristic.LockCurrentState.SECURED;
-  };
-
-  getChargePortTargetState = async () => {
-    const options = await this.getOptions();
-
-    if (options.isAsleep) {
-      this.logIgnored("charge port target state");
-      throw new Error("Vehicle is asleep.");
-    }
-
-    // This will only succeed if the car is already online.
-    const state: VehicleData = await api("vehicleData", options);
-
-    return state.charge_state.charge_port_door_open
-      ? Characteristic.LockTargetState.UNSECURED
-      : Characteristic.LockTargetState.SECURED;
-  };
-
-  setChargePortTargetState = async (state) => {
-    const options = await this.getOptions();
-
-    // Wake up, this is important!
-    await this.wakeUp(options);
-
-    this.log("Set charge port state to", state);
-
-    if (state === Characteristic.LockTargetState.SECURED) {
-      await api("closeChargePort", options);
-    } else {
-      await api("openChargePort", options);
-    }
-
-    // We succeeded, so update the "current" state as well.
-    // We need to update the current state "later" because Siri can't
-    // handle receiving the change event inside the same "set target state"
-    // response.
-    await wait(1);
-
-    if (state == Characteristic.LockTargetState.SECURED) {
-      this.chargePortService.setCharacteristic(
-        Characteristic.LockCurrentState,
-        Characteristic.LockCurrentState.SECURED,
-      );
-    } else {
-      this.chargePortService.setCharacteristic(
-        Characteristic.LockCurrentState,
-        Characteristic.LockCurrentState.UNSECURED,
-      );
-    }
-  };
-
   getChargePortOn = async () => {
     const options = await this.getOptions();
 
@@ -817,7 +731,6 @@ class TeslaAccessory {
     }
 
     // This will only succeed if the car is already online. We don't want to
-    // wake it up just to see the sentry mode state because that could drain battery!
     const state: VehicleData = await api("vehicleData", options);
 
     const on = state.charge_state.charge_port_door_open
@@ -833,7 +746,7 @@ class TeslaAccessory {
     // Wake up, this is important!
     await this.wakeUp(options);
 
-    this.log("Charge Port is set to ", on);
+    this.log("Charge Port is set to", on);
 
     if (on) {
       await api("closeChargePort", options);

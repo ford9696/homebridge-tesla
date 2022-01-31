@@ -104,7 +104,12 @@
       "disableChargeLevel": {
         "title": "Disable Charge Level Service",
         "type": "boolean"
-      }
+      },
+      "outsideTemperature": {
+        "name":"Outside"
+      },
+      "insideTemperature":{
+        "name":"Inside"
     }
   }
 }

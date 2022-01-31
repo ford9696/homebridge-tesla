@@ -818,7 +818,7 @@ class TeslaAccessory {
 
     // This will only succeed if the car is already online. We don't want to
     // wake it up just to see the sentry mode state because that could drain battery!
-    const state: VehicleState = await api("vehicleState", options);
+    const state: VehicleData = await api("vehicleData", options);
 
     const on = state.charge_state.charge_port_door_open
     ;

@@ -740,7 +740,7 @@ class TeslaAccessory {
     return on;
   };
 
-  setChargePortOn = async () => {
+  setChargePortOn = async (on) => {
     const options = await this.getOptions();
 
     // Wake up, this is important!

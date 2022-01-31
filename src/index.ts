@@ -26,20 +26,6 @@ class TeslaAccessory {
   refreshToken: string;
   password: string;
   waitMinutes: number;
-  latitude: number;
-  longitude: number;
-  disableDoors: boolean | null;
-  disableSentryMode: boolean | null;
-  sentryModeSwitch: boolean | null;
-  disableTrunk: boolean | null;
-  disableFrunk: boolean | null;
-  disableChargePort: boolean | null;
-  disableClimate: boolean | null;
-  disableDefrost: boolean | null;
-  disableCharger: boolean | null;
-  disableStarter: boolean | null;
-  enableHomeLink: boolean | null;
-  disableChargeLevel: boolean | null;
 
   // Runtime state.
   authToken: string | undefined;
@@ -56,8 +42,6 @@ class TeslaAccessory {
   climateService: any;
   defrostService: any;
   chargerService: any;
-  starterService: any;
-  homelinkService: any;
   chargeLevelService: any;
 
   constructor(log, config) {
@@ -68,21 +52,6 @@ class TeslaAccessory {
     this.waitMinutes = config["waitMinutes"] || 1; // default to one minute.
     this.refreshToken = config["refreshToken"];
     this.password = config["password"];
-    this.latitude = config["latitude"];
-    this.longitude = config["longitude"];
-    this.disableDoors = config["disableDoors"] || false;
-    this.disableSentryMode = config["disableSentryMode"] || false;
-    this.sentryModeSwitch = config["sentryModeSwitch"] || false;
-    this.disableTrunk = config["disableTrunk"] || false;
-    this.disableFrunk = config["disableFrunk"] || false;
-    this.disableChargePort = config["disableChargePort"] || false;
-    this.disableClimate = config["disableClimate"] || false;
-    this.disableDefrost =
-      (this.disableClimate || config["disableDefrost"]) || false;
-    this.disableCharger = config["disableCharger"] || false;
-    this.disableStarter = config["disableStarter"] || false;
-    this.enableHomeLink = config["enableHomeLink"] || false;
-    this.disableChargeLevel = config["disableChargeLevel"] || false;
 
     const connectionService = new Service.Switch(baseName + " Connection","connection",);
 
@@ -119,20 +88,6 @@ class TeslaAccessory {
       .getCharacteristic(Characteristic.LockTargetState)
       .on("get", callbackify(this.getSentryModeTargetState))
       .on("set", callbackify(this.setSentryModeTargetState));
-
-    const sentryModeSwitchService = new Service.Switch(
-      baseName + " Sentry Mode",
-      "sentrySwitch",
-    );
-
-    sentryModeSwitchService
-      .getCharacteristic(Characteristic.On)
-      .on("get", callbackify(this.getSentryModeOn))
-      .on("set", callbackify(this.setSentryModeOn));
-
-    this.sentryModeService = this.sentryModeSwitch
-      ? sentryModeSwitchService
-      : sentryModeLockService;
 
     const climateService = new Service.Switch(baseName + " Climate", "climate");
 
@@ -205,29 +160,6 @@ class TeslaAccessory {
 
     this.chargerService = chargerService;
 
-    // Remote start service lets you initiate keyless driving.
-    const starterService = new Service.Switch(baseName + " Starter", "starter");
-
-    starterService
-      .getCharacteristic(Characteristic.On)
-      .on("get", callbackify(this.getStarterOn))
-      .on("set", callbackify(this.setStarterOn));
-
-    this.starterService = starterService;
-
-    // HomeLink start service lets you open or close a garage door.
-    const homelinkService = new Service.GarageDoorOpener(
-      baseName + " HomeLink",
-      "homelink",
-    );
-
-    homelinkService
-      .getCharacteristic(Characteristic.TargetDoorState)
-      .on("get", callbackify(this.getCurrentGarageDoorState))
-      .on("set", callbackify(this.setTargetGarageDoorState));
-
-    this.homelinkService = homelinkService;
-
     // Charge Level
     const chargeLevelService = new Service.BatteryService(
       baseName + " Charge Level",
@@ -244,57 +176,8 @@ class TeslaAccessory {
   getServices() {
     return [
       this.connectionService,
-      ...(this.disableDoors ? [] : [this.lockService]),
-      ...(this.disableSentryMode ? [] : [this.sentryModeService]),
-      ...(this.disableClimate ? [] : [this.climateService]),
-      ...(this.disableDefrost ? [] : [this.defrostService]),
-      ...(this.disableTrunk ? [] : [this.trunkService]),
-      ...(this.disableFrunk ? [] : [this.frunkService]),
-      ...(this.disableCharger ? [] : [this.chargerService]),
-      ...(this.disableChargePort ? [] : [this.chargePortService]),
-      ...(this.disableStarter ? [] : [this.starterService]),
-      ...(!this.enableHomeLink ? [] : [this.homelinkService]),
-      ...(this.disableChargeLevel ? [] : [this.chargeLevelService]),
     ];
   }
-
-  //
-  //HomeLink
-  //
-
-  getCurrentGarageDoorState = async () => {
-    this.log("HomeLink does not support garage door status.");
-    this.log("Always setting garage door state to closed.");
-
-    if (!this.homelinkService.Characteristic.TargetDoorState) {
-      this.homelinkService.setCharacteristic(
-        Characteristic.TargetDoorState,
-        Characteristic.TargetDoorState.CLOSED,
-      );
-    }
-
-    return;
-  };
-
-  setTargetGarageDoorState = async () => {
-    const options = await this.getOptions();
-    const state: VehicleState = await api("vehicleState", options);
-
-    // Car has to be awake
-    await this.wakeUp(options);
-
-    // This will only succeed if the car is already online and within proximity to the
-    // latitude and longitude settings.
-    if (state.homelink_nearby) {
-      const results = await api(
-        "homelink",
-        options,
-        this.latitude,
-        this.longitude,
-      );
-      this.log("HomeLink activated: ", results.result);
-    } else this.log("HomeLink not available.");
-  };
 
   //
   // Charge Level
@@ -381,38 +264,6 @@ class TeslaAccessory {
         Characteristic.LockCurrentState,
         Characteristic.LockCurrentState.UNSECURED,
       );
-    }
-  };
-
-  getSentryModeOn = async () => {
-    const options = await this.getOptions();
-
-    if (options.isAsleep) {
-      this.logIgnored("sentry mode");
-      throw new Error("Vehicle is asleep.");
-    }
-
-    // This will only succeed if the car is already online. We don't want to
-    const state: VehicleState = await api("vehicleState", options);
-
-    const on = state.sentry_mode;
-
-    this.log("Sentry Mode on?", on);
-    return on;
-  };
-
-  setSentryModeOn = async (on: boolean) => {
-    const options = await this.getOptions();
-
-    // Wake up, this is important!
-    await this.wakeUp(options);
-
-    this.log("Set sentry mode state to", on);
-
-    if (on) {
-      await api("setSentryMode", options, true);
-    } else {
-      await api("setSentryMode", options, false);
     }
   };
 
@@ -733,14 +584,13 @@ class TeslaAccessory {
     // This will only succeed if the car is already online. We don't want to
     const state: VehicleData = await api("vehicleData", options);
 
-    const on = state.charge_state.charge_port_door_open
-    ;
+    const on = state.charge_state.charge_port_door_open;
 
     this.log("Charge Port Open?", on);
     return on;
   };
 
-  setChargePortOn = async (on) => {
+  setChargePortOn = async (on: boolean) => {
     const options = await this.getOptions();
 
     // Wake up, this is important!
@@ -749,9 +599,9 @@ class TeslaAccessory {
     this.log("Charge Port is set to", on);
 
     if (on) {
-      await api("closeChargePort", options, true);
+      await api("closeChargePort", options);
     } else {
-      await api("openChargePort", options, true);
+      await api("openChargePort", options);
     }
   };
 
@@ -788,42 +638,6 @@ class TeslaAccessory {
       await api("startCharge", options);
     } else {
       await api("stopCharge", options);
-    }
-  };
-
-  //
-  // Starter Switch (Remote start)
-  //
-
-  getStarterOn = async () => {
-    const options = await this.getOptions();
-
-    if (options.isAsleep) {
-      this.logIgnored("starter state");
-      throw new Error("Vehicle is asleep.");
-    }
-
-    // This will only succeed if the car is already online.
-    const state: VehicleData = await api("vehicleData", options);
-
-    const on = !!state.vehicle_state.remote_start;
-
-    this.log("Remote start active?", on);
-    return on;
-  };
-
-  setStarterOn = async (on: boolean) => {
-    const options = await this.getOptions();
-
-    // Wake up, this is important!
-    await this.wakeUp(options);
-
-    this.log("Set remote starter to", on);
-
-    if (on) {
-      await tesla.remoteStartAsync(options, this.password);
-    } else {
-      throw new Error("Cannot turn off the remote starter.");
     }
   };
 

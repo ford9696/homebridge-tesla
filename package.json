@@ -1,7 +1,11 @@
 {
   "name": "homebridge-tesla-control",
   "displayName": "Homebridge Tesla Control",
+<<<<<<< HEAD
   "version": "1.0.9",
+=======
+  "version": "1.0.4",
+>>>>>>> parent of ef62be8... Tweak.
   "description": "Forked from Tesla support for Homebridge: https://github.com/nfarina/homebridge",
   "license": "ISC",
   "keywords": [
